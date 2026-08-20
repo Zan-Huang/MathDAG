@@ -99,6 +99,27 @@ a {
   color: var(--muted);
 }
 
+.focus-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.focus-control select {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  min-width: 220px;
+  background: var(--panel);
+  color: var(--text);
+}
+
 .nav {
   display: flex;
   gap: 4px;

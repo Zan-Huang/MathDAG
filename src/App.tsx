@@ -4,11 +4,21 @@ import { Library } from './components/Library'
 import { Log } from './components/Log'
 import { Paths } from './components/Paths'
 import { Reader } from './components/Reader'
+import { paths } from './data/paths'
 import { assertGraph, topicById, topics } from './data'
 import { DOMAIN_LABEL, DOMAINS, type Domain, type ProgressStatus } from './data/types'
 import { resourcesByNode } from './data/resources'
 import { availability } from './lib/graph'
 import { relativeDay } from './lib/dates'
+import {
+  focusKey,
+  focusLabel,
+  focusTopics,
+  loadFocus,
+  parseFocusKey,
+  saveFocus,
+  type Focus,
+} from './lib/focus'
 import {
   addCheckIn,
   allCheckIns,
@@ -35,29 +45,41 @@ export default function App() {
   const [progress, setProgress] = useState(loadProgress)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [focus, setFocusState] = useState<Focus>(loadFocus)
   const [domains, setDomains] = useState<Record<Domain, boolean>>(() =>
     Object.fromEntries(DOMAINS.map((d) => [d, true])) as Record<Domain, boolean>,
   )
   const fileRef = useRef<HTMLInputElement>(null)
 
+  function setFocus(next: Focus) {
+    saveFocus(next)
+    setFocusState(next)
+  }
+
+  const scoped = useMemo(() => focusTopics(focus), [focus])
   const selected = selectedId ? topicById[selectedId] : null
-  const done = topics.filter((topic) => isDone(progress, topic.id)).length
-  const hoursDone = topics
+  const done = scoped.filter((topic) => isDone(progress, topic.id)).length
+  const hoursDone = scoped
     .filter((topic) => isDone(progress, topic.id))
     .reduce((sum, topic) => sum + topic.hours, 0)
-  const hoursAll = topics.reduce((sum, topic) => sum + topic.hours, 0)
-  const pct = Math.round((done / topics.length) * 100)
+  const hoursAll = scoped.reduce((sum, topic) => sum + topic.hours, 0)
+  const pct = scoped.length ? Math.round((done / scoped.length) * 100) : 0
   const weekMin = minutesSince(progress, Date.now() - 7 * 86400000)
-  const recent = allCheckIns(progress).slice(0, 6)
+  const scopedIds = useMemo(() => new Set(scoped.map((topic) => topic.id)), [scoped])
+  const recent = allCheckIns(progress)
+    .filter((entry) => scopedIds.has(entry.nodeId))
+    .slice(0, 6)
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return topics.filter((topic) => {
-      if (!topic.domains.some((domain) => domains[domain])) return false
+    return scoped.filter((topic) => {
+      if (focus.type === 'all' && !topic.domains.some((domain) => domains[domain])) {
+        return false
+      }
       if (!q) return true
       return `${topic.title} ${topic.summary} ${topic.primary}`.toLowerCase().includes(q)
     })
-  }, [query, domains])
+  }, [query, domains, scoped, focus.type])
 
   function openTopic(id: string) {
     setSelectedId(id)
@@ -99,9 +121,36 @@ export default function App() {
             Log
           </button>
         </nav>
+        <label className="focus-control">
+          <span>Focus</span>
+          <select
+            value={focusKey(focus)}
+            onChange={(e) => {
+              setFocus(parseFocusKey(e.target.value))
+              setView('map')
+            }}
+          >
+            <option value="all">All subjects</option>
+            <optgroup label="Goals">
+              {paths.map((path) => (
+                <option key={path.id} value={`path:${path.id}`}>
+                  {path.title}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Field only">
+              {DOMAINS.map((domain) => (
+                <option key={domain} value={`domain:${domain}`}>
+                  {DOMAIN_LABEL[domain]} only
+                </option>
+              ))}
+            </optgroup>
+          </select>
+        </label>
         <div className="top-stats">
           <span>
-            {done}/{topics.length} · {pct}% · {weekMin} min / 7d
+            {done}/{scoped.length} · {pct}%
+            {focus.type !== 'all' ? ` · ${focusLabel(focus)}` : ''} · {weekMin} min / 7d
           </span>
           <div className="meter" title={`${pct}% complete · ${hoursDone}/${hoursAll}h checked off`}>
             <span style={{ width: `${pct}%` }} />
@@ -132,17 +181,26 @@ export default function App() {
       {view === 'map' && (
         <div className={`workspace${selected ? ' reading' : ''}`}>
           <aside className="side">
-            <h2>Filter the graph</h2>
+            <h2>{focus.type === 'all' ? 'Filter the graph' : focusLabel(focus)}</h2>
             <p>
-              Check the box on a node to mark it done. Open a subject to log a check-in after
-              you study.
+              {focus.type === 'all'
+                ? 'Check a node to mark it done. Use Focus to show one goal or field.'
+                : focus.type === 'path'
+                  ? 'Only this route is on the map, including the prerequisites it needs.'
+                  : 'Only subjects tagged with this field. Shared math and other fields are hidden.'}
             </p>
+            {focus.type !== 'all' && (
+              <button className="ghost" style={{ marginBottom: 12 }} onClick={() => setFocus({ type: 'all' })}>
+                Show all subjects
+              </button>
+            )}
             <input
               className="search"
               value={query}
               placeholder="Search subjects"
               onChange={(e) => setQuery(e.target.value)}
             />
+            {focus.type === 'all' && (
             <div className="filters">
               {DOMAINS.map((domain) => {
                 const count = topics.filter((topic) => topic.domains.includes(domain)).length
@@ -165,10 +223,11 @@ export default function App() {
                 )
               })}
             </div>
+            )}
             <h2>Frontier</h2>
             <p className="hint">Unlocked and not yet checked off.</p>
             <div className="rel-list">
-              {topics
+              {visible
                 .filter((topic) => availability(topic.id, progress) === 'available')
                 .slice(0, 10)
                 .map((topic) => (
@@ -212,6 +271,11 @@ export default function App() {
             selectedId={selectedId}
             onSelect={setSelectedId}
             onToggle={(id) => setProgress((map) => toggleDone(map, id))}
+            caption={
+              focus.type === 'all'
+                ? undefined
+                : `${focusLabel(focus)} · ${visible.length} subjects`
+            }
           />
           {selected && (
             <Reader
@@ -244,6 +308,10 @@ export default function App() {
           progress={progress}
           onOpenTopic={openTopic}
           onToggle={(id) => setProgress((map) => toggleDone(map, id))}
+          onFocus={(id) => {
+            setFocus({ type: 'path', id })
+            setView('map')
+          }}
         />
       )}
       {view === 'log' && <Log progress={progress} onOpenTopic={openTopic} />}

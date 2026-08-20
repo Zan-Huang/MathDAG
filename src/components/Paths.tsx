@@ -8,16 +8,17 @@ type Props = {
   progress: ProgressMap
   onOpenTopic: (id: string) => void
   onToggle: (id: string) => void
+  onFocus: (id: string) => void
 }
 
-export function Paths({ progress, onOpenTopic, onToggle }: Props) {
+export function Paths({ progress, onOpenTopic, onToggle, onFocus }: Props) {
   return (
     <div className="paths-page">
       <div className="kicker">Guided routes</div>
       <h2>Study paths</h2>
       <p className="hint">
-        Check a node off when it is done. The box toggles completion; the name opens the
-        section.
+        Check a node off when it is done. Focus on map hides every subject that is not
+        on that route.
       </p>
       {paths.map((path) => {
         const done = path.nodeIds.filter((id) => isDone(progress, id)).length
@@ -34,6 +35,9 @@ export function Paths({ progress, onOpenTopic, onToggle }: Props) {
               <div className="meter">
                 <span style={{ width: `${pct}%` }} />
               </div>
+              <button className="ghost" onClick={() => onFocus(path.id)}>
+                Focus on map
+              </button>
             </div>
             <ol className="path-checks">
               {path.nodeIds.map((id) => (

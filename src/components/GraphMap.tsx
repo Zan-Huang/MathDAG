@@ -12,9 +12,10 @@ type Props = {
   selectedId: string | null
   onSelect: (id: string) => void
   onToggle: (id: string) => void
+  caption?: string
 }
 
-export function GraphMap({ topics, progress, selectedId, onSelect, onToggle }: Props) {
+export function GraphMap({ topics, progress, selectedId, onSelect, onToggle, caption }: Props) {
   const { nodes, width, height } = useMemo(() => layoutTopics(topics), [topics])
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.topic.id, n])), [nodes])
   const [view, setView] = useState({ x: 24, y: 16, k: 0.82 })
@@ -153,6 +154,7 @@ export function GraphMap({ topics, progress, selectedId, onSelect, onToggle }: P
         </g>
       </svg>
       <div className="graph-help">
+        {caption ? `${caption} · ` : ''}
         Scroll to zoom · Drag to pan · Box checks off a subject · Name opens it
       </div>
     </div>
