@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 *.local
+# Built site is committed to /docs for GitHub Pages
+# (workflow deploy needs a broader GitHub token scope)
 
 # Nested empty clone created by GitHub; the real project is the parent folder
 /MathDAG/
