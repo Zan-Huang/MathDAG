@@ -5,7 +5,8 @@ import type { ProgressMap } from '../data/types'
 import { topicById } from '../data'
 import { fromDateInput, relativeDay, toDateInput } from '../lib/dates'
 import { prerequisitesMet } from '../lib/graph'
-import { emptyNode, isDone, lastCheckIn, minutesOn } from '../lib/progress'
+import { subtopicsFor } from '../data/curriculum'
+import { emptyNode, isDone, isSubtopicDone, lastCheckIn, minutesOn } from '../lib/progress'
 import { Check } from './Check'
 import { ResourceCard } from './ResourceCard'
 
@@ -22,6 +23,7 @@ type Props = {
   onToggleResource: (resourceId: string) => void
   onToggleIdea: (index: number) => void
   onToggleNode: (id: string) => void
+  onToggleSubtopic: (subtopicId: string) => void
 }
 
 const STATUSES: { id: ProgressStatus; label: string }[] = [
@@ -44,6 +46,7 @@ export function Reader({
   onToggleResource,
   onToggleIdea,
   onToggleNode,
+  onToggleSubtopic,
 }: Props) {
   const node = emptyNode(progress[topic.id])
   const status = node.status
@@ -185,6 +188,27 @@ export function Reader({
           <p key={para.slice(0, 24)}>{para}</p>
         ))}
       </section>
+
+      {subtopicsFor(topic.id).length > 0 && (
+        <section className="section">
+          <h2>Curriculum</h2>
+          <p className="hint">
+            Check an item when you can do the work, not when you have only watched a lecture.
+            {` ${subtopicsFor(topic.id).filter((item) => isSubtopicDone(progress, topic.id, item.id)).length}/${subtopicsFor(topic.id).length} done.`}
+          </p>
+          <ul className="idea-checks">
+            {subtopicsFor(topic.id).map((item) => (
+              <li key={item.id}>
+                <Check
+                  checked={isSubtopicDone(progress, topic.id, item.id)}
+                  label={item.title}
+                  onChange={() => onToggleSubtopic(item.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="section">
         <h2>Core ideas</h2>

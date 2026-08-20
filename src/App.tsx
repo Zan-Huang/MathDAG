@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
+import { Curriculum } from './components/Curriculum'
 import { GraphMap } from './components/GraphMap'
 import { Library } from './components/Library'
 import { Log } from './components/Log'
@@ -34,9 +35,10 @@ import {
   toggleDone,
   toggleIdea,
   toggleResource,
+  toggleSubtopic,
 } from './lib/progress'
 
-type View = 'map' | 'library' | 'paths' | 'log'
+type View = 'map' | 'library' | 'paths' | 'log' | 'curriculum'
 
 const graphErrors = assertGraph()
 
@@ -116,6 +118,9 @@ export default function App() {
           </button>
           <button className={view === 'paths' ? 'active' : ''} onClick={() => setView('paths')}>
             Paths
+          </button>
+          <button className={view === 'curriculum' ? 'active' : ''} onClick={() => setView('curriculum')}>
+            Syllabus
           </button>
           <button className={view === 'log' ? 'active' : ''} onClick={() => setView('log')}>
             Log
@@ -297,6 +302,9 @@ export default function App() {
               }
               onToggleIdea={(index) => setProgress((map) => toggleIdea(map, selected.id, index))}
               onToggleNode={(id) => setProgress((map) => toggleDone(map, id))}
+              onToggleSubtopic={(subtopicId) =>
+                setProgress((map) => toggleSubtopic(map, selected.id, subtopicId))
+              }
             />
           )}
         </div>
@@ -312,6 +320,16 @@ export default function App() {
             setFocus({ type: 'path', id })
             setView('map')
           }}
+        />
+      )}
+      {view === 'curriculum' && (
+        <Curriculum
+          progress={progress}
+          onOpenTopic={openTopic}
+          onToggle={(topicId, subtopicId) =>
+            setProgress((map) => toggleSubtopic(map, topicId, subtopicId))
+          }
+          onToggleSubject={(id) => setProgress((map) => toggleDone(map, id))}
         />
       )}
       {view === 'log' && <Log progress={progress} onOpenTopic={openTopic} />}

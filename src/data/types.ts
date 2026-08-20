@@ -95,6 +95,7 @@ export interface NodeProgress {
   checkins: CheckIn[]
   resourcesDone: string[]
   ideasDone: number[]
+  subtopicsDone: string[]
 }
 
 export type ProgressMap = Record<string, NodeProgress>

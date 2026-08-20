@@ -10,6 +10,7 @@ export function emptyNode(partial: Partial<NodeProgress> = {}): NodeProgress {
     checkins: Array.isArray(partial.checkins) ? partial.checkins : [],
     resourcesDone: Array.isArray(partial.resourcesDone) ? partial.resourcesDone : [],
     ideasDone: Array.isArray(partial.ideasDone) ? partial.ideasDone : [],
+    subtopicsDone: Array.isArray(partial.subtopicsDone) ? partial.subtopicsDone : [],
   }
 }
 
@@ -110,6 +111,21 @@ export function toggleResource(map: ProgressMap, id: string, resourceId: string)
       ? current.resourcesDone.filter((item) => item !== resourceId)
       : [...current.resourcesDone, resourceId],
   })
+}
+
+export function toggleSubtopic(map: ProgressMap, id: string, subtopicId: string): ProgressMap {
+  const current = emptyNode(map[id])
+  const has = current.subtopicsDone.includes(subtopicId)
+  return write(map, id, {
+    status: current.status === 'none' ? 'in_progress' : current.status,
+    subtopicsDone: has
+      ? current.subtopicsDone.filter((item) => item !== subtopicId)
+      : [...current.subtopicsDone, subtopicId],
+  })
+}
+
+export function isSubtopicDone(map: ProgressMap, id: string, subtopicId: string): boolean {
+  return (map[id]?.subtopicsDone ?? []).includes(subtopicId)
 }
 
 export function toggleIdea(map: ProgressMap, id: string, index: number): ProgressMap {
