@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Then open the URL Vite prints (usually `http://localhost:5173`).
+Then open the URL Vite prints (usually `http://localhost:5173`). The public site is built from `dist/` and served at `/MathDAG/` (for example `https://zanhuang.org/MathDAG/`).
 
 Progress lives in this browser (`localStorage`). Use **Export** / **Import** in the top bar to move a JSON backup between machines.
 
