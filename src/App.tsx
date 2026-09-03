@@ -1,16 +1,18 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Curriculum } from './components/Curriculum'
 import { GraphMap } from './components/GraphMap'
 import { Library } from './components/Library'
 import { Log } from './components/Log'
 import { Paths } from './components/Paths'
 import { Reader } from './components/Reader'
+import { Viewer, type Session } from './components/Viewer'
 import { paths } from './data/paths'
 import { assertGraph, topicById, topics } from './data'
 import { DOMAIN_LABEL, DOMAINS, type Domain, type ProgressStatus } from './data/types'
-import { resourcesByNode } from './data/resources'
+import { resourcesById, resourcesByNode } from './data/resources'
 import { availability } from './lib/graph'
 import { relativeDay } from './lib/dates'
+import { resolveViewable, type ViewerTarget } from './lib/viewer'
 import {
   focusKey,
   focusLabel,
@@ -52,6 +54,9 @@ export default function App() {
     Object.fromEntries(DOMAINS.map((d) => [d, true])) as Record<Domain, boolean>,
   )
   const fileRef = useRef<HTMLInputElement>(null)
+  const [viewer, setViewer] = useState<ViewerTarget | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [draft, setDraft] = useState<{ minutes: number; note: string; key: number } | null>(null)
 
   function setFocus(next: Focus) {
     saveFocus(next)
@@ -60,6 +65,51 @@ export default function App() {
 
   const scoped = useMemo(() => focusTopics(focus), [focus])
   const selected = selectedId ? topicById[selectedId] : null
+  const viewerResource = viewer ? resourcesById[viewer.resourceId] : null
+
+  /** Open a resource in the middle panel and make sure a matching subject is in the reader. */
+  function openResource(target: ViewerTarget) {
+    const resource = resourcesById[target.resourceId]
+    if (!resource) return
+    if (!selectedId || !resource.nodeIds.includes(selectedId)) {
+      const inScope = resource.nodeIds.find((id) => scoped.some((topic) => topic.id === id))
+      setSelectedId(inScope ?? resource.nodeIds[0] ?? null)
+    }
+    setViewer(target)
+    setView('map')
+  }
+
+  function startSession() {
+    if (!viewerResource) return
+    setSession({ startedAt: Date.now(), resourceId: viewerResource.id })
+  }
+
+  /** Stop the timer and hand the elapsed minutes to the reader's check-in form. */
+  function stopSession() {
+    if (!session) return
+    const minutes = Math.max(1, Math.round((Date.now() - session.startedAt) / 60000))
+    const resource = resourcesById[session.resourceId]
+    const partTitle =
+      viewer && viewer.resourceId === session.resourceId && resource
+        ? resolveViewable(resource, viewer.part).title
+        : null
+    const note = resource
+      ? partTitle && partTitle !== resource.title
+        ? `${resource.title} — ${partTitle}`
+        : resource.title
+      : ''
+    setDraft({ minutes, note, key: Date.now() })
+    setSession(null)
+  }
+
+  useEffect(() => {
+    if (!viewer) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setViewer(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [viewer])
   const done = scoped.filter((topic) => isDone(progress, topic.id)).length
   const hoursDone = scoped
     .filter((topic) => isDone(progress, topic.id))
@@ -110,9 +160,24 @@ export default function App() {
           <div className="brand-sub">Physics · Neuro · AI</div>
         </div>
         <nav className="nav">
-          <button className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>
+          <button
+            className={view === 'map' && !viewer ? 'active' : ''}
+            onClick={() => {
+              setViewer(null)
+              setView('map')
+            }}
+          >
             Map
           </button>
+          {viewerResource && (
+            <button
+              className={view === 'map' && viewer ? 'active' : ''}
+              onClick={() => setView('map')}
+              title={viewerResource.title}
+            >
+              Viewer
+            </button>
+          )}
           <button className={view === 'library' ? 'active' : ''} onClick={() => setView('library')}>
             Library
           </button>
@@ -270,18 +335,42 @@ export default function App() {
               </p>
             </div>
           </aside>
-          <GraphMap
-            topics={visible}
-            progress={progress}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-            onToggle={(id) => setProgress((map) => toggleDone(map, id))}
-            caption={
-              focus.type === 'all'
-                ? undefined
-                : `${focusLabel(focus)} · ${visible.length} subjects`
-            }
-          />
+          {viewer && viewerResource ? (
+            <Viewer
+              target={viewer}
+              resource={viewerResource}
+              queue={(selectedId && resourcesByNode[selectedId]) || [viewerResource]}
+              topicId={selectedId}
+              checked={Boolean(
+                progress[selectedId ?? viewerResource.nodeIds[0] ?? '']?.resourcesDone.includes(
+                  viewerResource.id,
+                ),
+              )}
+              session={session}
+              onSelect={openResource}
+              onClose={() => setViewer(null)}
+              onToggleUsed={() => {
+                const nodeId = selectedId ?? viewerResource.nodeIds[0]
+                if (nodeId) setProgress((map) => toggleResource(map, nodeId, viewerResource.id))
+              }}
+              onStartSession={startSession}
+              onStopSession={stopSession}
+              onOpenTopic={setSelectedId}
+            />
+          ) : (
+            <GraphMap
+              topics={visible}
+              progress={progress}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
+              onToggle={(id) => setProgress((map) => toggleDone(map, id))}
+              caption={
+                focus.type === 'all'
+                  ? undefined
+                  : `${focusLabel(focus)} · ${visible.length} subjects`
+              }
+            />
+          )}
           {selected && (
             <Reader
               topic={selected}
@@ -305,12 +394,15 @@ export default function App() {
               onToggleSubtopic={(subtopicId) =>
                 setProgress((map) => toggleSubtopic(map, selected.id, subtopicId))
               }
+              onView={openResource}
+              activeResourceId={viewer?.resourceId ?? null}
+              draft={draft}
             />
           )}
         </div>
       )}
 
-      {view === 'library' && <Library onOpenTopic={openTopic} />}
+      {view === 'library' && <Library onOpenTopic={openTopic} onView={openResource} />}
       {view === 'paths' && (
         <Paths
           progress={progress}

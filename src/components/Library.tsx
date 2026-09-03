@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { resources } from '../data/resources'
 import { RESOURCE_TYPES, RESOURCE_TYPE_LABEL, type ResourceType } from '../data/types'
+import { canView, type ViewerTarget } from '../lib/viewer'
 import { ResourceCard } from './ResourceCard'
 
 type Props = {
   onOpenTopic: (id: string) => void
+  onView: (target: ViewerTarget) => void
 }
 
-export function Library({ onOpenTopic }: Props) {
+export function Library({ onOpenTopic, onView }: Props) {
   const [query, setQuery] = useState('')
   const [type, setType] = useState<ResourceType | 'all'>('all')
   const [format, setFormat] = useState<'all' | 'web' | 'pdf' | 'video' | 'interactive'>('all')
@@ -30,7 +32,9 @@ export function Library({ onOpenTopic }: Props) {
       <h2>Open resources</h2>
       <p className="hint">
         {resources.length} books, courses, notes, videos, and papers that are free to open for
-        personal study. Nothing is fetched or saved by the app until you click Open.
+        personal study. {resources.filter(canView).length} can be viewed inside MathDAG; the rest
+        open in a new tab because the publisher forbids embedding. Nothing is downloaded or saved
+        by the app.
       </p>
       <div className="toolbar">
         <input
@@ -62,7 +66,12 @@ export function Library({ onOpenTopic }: Props) {
       <p className="hint">{list.length} shown</p>
       <div className="grid">
         {list.map((resource) => (
-          <ResourceCard key={resource.id} resource={resource} onOpenTopic={onOpenTopic} />
+          <ResourceCard
+            key={resource.id}
+            resource={resource}
+            onOpenTopic={onOpenTopic}
+            onView={onView}
+          />
         ))}
       </div>
     </div>

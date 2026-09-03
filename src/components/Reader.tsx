@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { resourcesByNode } from '../data/resources'
+import type { ViewerTarget } from '../lib/viewer'
 import { DOMAIN_LABEL, type ProgressStatus, type Topic } from '../data/types'
 import type { ProgressMap } from '../data/types'
 import { topicById } from '../data'
@@ -24,6 +25,10 @@ type Props = {
   onToggleIdea: (index: number) => void
   onToggleNode: (id: string) => void
   onToggleSubtopic: (subtopicId: string) => void
+  onView: (target: ViewerTarget) => void
+  activeResourceId: string | null
+  /** Prefill for the check-in form, e.g. from a stopped viewer session. */
+  draft: { minutes: number; note: string; key: number } | null
 }
 
 const STATUSES: { id: ProgressStatus; label: string }[] = [
@@ -47,6 +52,9 @@ export function Reader({
   onToggleIdea,
   onToggleNode,
   onToggleSubtopic,
+  onView,
+  activeResourceId,
+  draft,
 }: Props) {
   const node = emptyNode(progress[topic.id])
   const status = node.status
@@ -59,6 +67,13 @@ export function Reader({
   const [minutesInput, setMinutesInput] = useState('45')
   const [noteInput, setNoteInput] = useState('')
   const [dateInput, setDateInput] = useState(toDateInput())
+
+  useEffect(() => {
+    if (!draft) return
+    setMinutesInput(String(Math.max(1, draft.minutes)))
+    setNoteInput(draft.note)
+    setDateInput(toDateInput())
+  }, [draft])
 
   function submitCheckIn() {
     const mins = Number(minutesInput)
@@ -182,6 +197,27 @@ export function Reader({
         )}
       </section>
 
+      <section className="section" id="resources">
+        <h2>Study material</h2>
+        <p className="hint">
+          View here loads videos, PDFs, and notes in the middle panel so you can watch, read, and
+          check in without leaving. Check a source when you have used it.
+        </p>
+        {list.length === 0 && (
+          <p className="hint">No open resources tagged for this node yet.</p>
+        )}
+        {list.map((resource) => (
+          <ResourceCard
+            key={resource.id}
+            resource={resource}
+            checked={node.resourcesDone.includes(resource.id)}
+            onToggle={() => onToggleResource(resource.id)}
+            onView={onView}
+            active={activeResourceId === resource.id}
+          />
+        ))}
+      </section>
+
       <section className="section">
         <h2>Overview</h2>
         {topic.overview.split('\n\n').map((para) => (
@@ -264,24 +300,6 @@ export function Reader({
           onOpenTopic={onOpenTopic}
           onToggleNode={onToggleNode}
         />
-      </section>
-
-      <section className="section">
-        <h2>Resources</h2>
-        <p className="hint">
-          Check a source when you have used it. Open still only happens if you click Open.
-        </p>
-        {list.length === 0 && (
-          <p className="hint">No open resources tagged for this node yet.</p>
-        )}
-        {list.map((resource) => (
-          <ResourceCard
-            key={resource.id}
-            resource={resource}
-            checked={node.resourcesDone.includes(resource.id)}
-            onToggle={() => onToggleResource(resource.id)}
-          />
-        ))}
       </section>
 
       <section className="section">

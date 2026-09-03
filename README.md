@@ -2,7 +2,7 @@
 
 A local study map for **physics**, **computational neuroscience**, and **AI**, including the mathematics they share and the subjects that sit on the overlaps.
 
-The app is a dependency graph: each node is a subject, edges are prerequisites, and finishing (or marking “already know”) a node unlocks what it feeds. Every node has a readable section plus a pooled catalog of **open** books, lecture notes, video courses, and papers. The app **does not download** those materials. You open or copy a link when you want the file.
+The app is a dependency graph: each node is a subject, edges are prerequisites, and finishing (or marking “already know”) a node unlocks what it feeds. Every node has a readable section plus a pooled catalog of **open** books, lecture notes, video courses, and papers. Videos, PDFs, and course pages load in the middle panel next to your checklist and check-in form; the app **does not download** or store any of it, the content streams from the publisher.
 
 ## Run
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Then open the URL Vite prints (usually `http://localhost:5173`). The public site is built from `dist/` and served at `/MathDAG/` (for example `https://zanhuang.org/MathDAG/`).
+Then open the URL Vite prints (usually `http://localhost:5173/MathDAG/`). The public site is built into `docs/` (`npm run build`) and served by GitHub Pages at `/MathDAG/`.
 
 Progress lives in this browser (`localStorage`). Use **Export** / **Import** in the top bar to move a JSON backup between machines.
 
@@ -19,6 +19,14 @@ Progress lives in this browser (`localStorage`). Use **Export** / **Import** in 
 - **Check in** on a subject after a study block (minutes, date, optional note). That is the dated log; standing notes are separate.
 - You can also check off core ideas and individual resources inside a subject.
 - **Log** is the chronological list of every check-in.
+
+## Viewing material inside the app
+
+- **View here** on any resource opens it in the middle panel (replacing the map) while the subject stays open on the right. Press `Esc` or **Back to map** to return; the **Viewer** tab in the top bar brings it back.
+- Courses expose their **parts**: the OCW course page, the lecture playlist, chapter PDFs, and so on. Tong’s notes list every noteset; MIT courses list the lecture videos beside the notes.
+- YouTube links become player embeds and arXiv abstracts become the PDF automatically.
+- **Start session** runs a timer while you read or watch; **Stop session** prefills the check-in form with the elapsed minutes and the resource title, so logging is one click.
+- Some publishers forbid embedding (Feynman Lectures, Coursera, Hugging Face, PMC, GitHub, Complexity Explorer, Theoretical Minimum). Those show **Open ↗** instead and open in a new tab. The list is in `src/data/embeds.ts`, checked against the sites’ `X-Frame-Options` / `frame-ancestors` headers.
 
 ## What is in the graph
 

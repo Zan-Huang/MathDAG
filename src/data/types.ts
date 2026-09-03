@@ -61,6 +61,20 @@ export interface Topic {
   unlocks: string
 }
 
+/**
+ * A sub-part of a resource that can be opened on its own in the in-app viewer:
+ * a lecture playlist, a chapter PDF, a notes page, a lab.
+ */
+export interface ResourcePart {
+  title: string
+  url: string
+  /** URL to load in the viewer when it differs from `url` (e.g. a YouTube embed URL). */
+  embed?: string
+  /** false when the publisher forbids framing (X-Frame-Options / frame-ancestors). */
+  embeddable?: boolean
+  kind?: ResourceFormat
+}
+
 export interface Resource {
   id: string
   title: string
@@ -72,6 +86,12 @@ export interface Resource {
   description: string
   difficulty: Difficulty
   nodeIds: string[]
+  /** URL to load in the viewer when it differs from `url` (playlist embed, direct PDF). */
+  embed?: string
+  /** false when the publisher forbids framing; the viewer then offers an external open. */
+  embeddable?: boolean
+  /** Lecture playlists, chapter PDFs, or notes that can be viewed individually. */
+  parts?: ResourcePart[]
 }
 
 export interface Path {

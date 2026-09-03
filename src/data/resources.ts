@@ -1,10 +1,11 @@
+import { embedOverrides } from './embeds'
 import type { Resource } from './types'
 
 function r(resource: Resource): Resource {
   return resource
 }
 
-export const resources: Resource[] = [
+const catalog: Resource[] = [
   r({
     id: 'openstax-precalc',
     title: 'OpenStax Precalculus',
@@ -546,7 +547,7 @@ export const resources: Resource[] = [
     title: 'David Tong: Cambridge lecture notes',
     authors: 'David Tong',
     type: 'lecture-notes',
-    url: 'https://www.damtp.cam.ac.uk/user/tong/teaching.html',
+    url: 'https://davidtong.org/teaching/',
     format: 'pdf',
     license: 'Author grant: copy and distribute freely with attribution, no alteration, no profit',
     difficulty: 'intermediate',
@@ -577,7 +578,7 @@ export const resources: Resource[] = [
     format: 'pdf',
     license: 'Author-hosted free book (Oxford; author posts the PDF)',
     difficulty: 'intermediate',
-    description: 'A modern stat-mech book with complexity and computation. Get the PDF from Sethna’s Cornell page.',
+    description: 'A modern stat-mech book with complexity and computation. Full PDF posted by the author.',
     nodeIds: ['statistical-mechanics', 'complexity-criticality', 'nonequilibrium-statmech'],
   }),
   r({
@@ -1649,6 +1650,12 @@ export const resources: Resource[] = [
     nodeIds: ['physics-informed-ml', 'pdes'],
   }),
 ]
+
+/** Catalog with viewer metadata (embeds, framing flags, parts, corrected URLs) layered on. */
+export const resources: Resource[] = catalog.map((resource) => ({
+  ...resource,
+  ...(embedOverrides[resource.id] ?? {}),
+}))
 
 export const resourcesById: Record<string, Resource> = Object.fromEntries(
   resources.map((resource) => [resource.id, resource]),
