@@ -3,6 +3,7 @@ import { topicById } from '../data'
 import type { Topic } from '../data/types'
 import type { ProgressMap } from '../data/types'
 import { availability } from '../lib/graph'
+import { masteryOf } from '../lib/mastery'
 import { isDone } from '../lib/progress'
 import { COL_W, NODE_H, NODE_W, PAD_X, PAD_Y, edgePath, layoutTopics } from '../lib/layout'
 
@@ -94,7 +95,7 @@ export function GraphMap({ topics, progress, selectedId, onSelect, onToggle, cap
           {nodes.map((node) => {
             const state = availability(node.topic.id, progress)
             const done = isDone(progress, node.topic.id)
-            const checkins = progress[node.topic.id]?.checkins?.length ?? 0
+            const mastery = masteryOf(progress, node.topic.id)
             const dim =
               focus != null &&
               node.topic.id !== focus &&
@@ -132,8 +133,18 @@ export function GraphMap({ topics, progress, selectedId, onSelect, onToggle, cap
                 </text>
                 <text className="node-meta" x="14" y="40" onClick={() => onSelect(node.topic.id)}>
                   {node.topic.primary} · {node.topic.hours}h
-                  {checkins > 0 ? ` · ${checkins} in` : ''}
+                  {mastery.pct > 0 ? ` · ${mastery.pct}%` : ''}
                 </text>
+                {mastery.pct > 0 && (
+                  <rect
+                    className={`node-mastery level-${mastery.level}`}
+                    x="4"
+                    y={NODE_H - 3}
+                    width={(NODE_W - 4) * (mastery.pct / 100)}
+                    height="3"
+                    onClick={() => onSelect(node.topic.id)}
+                  />
+                )}
                 <g
                   className={`node-check${done ? ' on' : ''}`}
                   onClick={(e) => {

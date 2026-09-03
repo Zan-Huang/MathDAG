@@ -15,10 +15,14 @@ Then open the URL Vite prints (usually `http://localhost:5173/MathDAG/`). The pu
 
 Progress lives in this browser (`localStorage`). Use **Export** / **Import** in the top bar to move a JSON backup between machines.
 
-- Check the box on a map node, path item, or subject page to mark it done. “Already know” also counts as done and unlocks dependents.
-- **Check in** on a subject after a study block (minutes, date, optional note). That is the dated log; standing notes are separate.
-- You can also check off core ideas and individual resources inside a subject.
-- **Log** is the chronological list of every check-in.
+## Tracking
+
+Progress is tracked continuously from what you do; there is nothing extra to fill out.
+
+- Every subject has a **mastery level** computed from its curriculum items, core ideas, and sources you have ticked: *Not started → Attempted → Familiar → Proficient*. Checking the subject off (or marking it “already know”) makes it **Mastered** and unlocks what depends on it. The percentage and level show on the map node, in the subject panel, and in the top bar.
+- Every tick, source used, check-in, and subject opened is written to an **activity log**. Un-ticking removes its entry.
+- Time is tracked automatically while material is open in the viewer and the tab is visible (one minute per minute, credited to the subject). You can still **check in** manually with minutes and a note.
+- **Progress** shows the whole picture: hour-weighted mastery for the current Focus, minutes this week against an editable weekly goal, current and longest **streak**, a 26-week activity calendar, mastery by field and by goal path, **Continue** (recently active subjects with the next unticked item), **Up next** (unlocked but untouched), subjects ready to check off, and the activity feed grouped by day.
 
 ## Viewing material inside the app
 

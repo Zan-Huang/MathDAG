@@ -108,6 +108,18 @@ export interface CheckIn {
   note: string
 }
 
+export type ActivityKind = 'subtopic' | 'idea' | 'resource' | 'mastered' | 'view'
+
+/** One thing you did, recorded automatically when you tick, open, or master something. */
+export interface ActivityEvent {
+  id: string
+  at: string
+  kind: ActivityKind
+  /** Stable reference (subtopic id, idea index, resource id) so un-ticking removes the event. */
+  ref: string
+  label: string
+}
+
 export interface NodeProgress {
   status: ProgressStatus
   notes: string
@@ -116,6 +128,10 @@ export interface NodeProgress {
   resourcesDone: string[]
   ideasDone: number[]
   subtopicsDone: string[]
+  /** Automatic activity log for this subject. */
+  events: ActivityEvent[]
+  /** Minutes tracked automatically while material for this subject was open, by local day (YYYY-MM-DD). */
+  tracked: Record<string, number>
 }
 
 export type ProgressMap = Record<string, NodeProgress>

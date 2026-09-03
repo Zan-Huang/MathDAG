@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Curriculum } from './components/Curriculum'
 import { GraphMap } from './components/GraphMap'
 import { Library } from './components/Library'
-import { Log } from './components/Log'
 import { Paths } from './components/Paths'
+import { Progress } from './components/Progress'
 import { Reader } from './components/Reader'
 import { Viewer, type Session } from './components/Viewer'
 import { paths } from './data/paths'
@@ -11,7 +11,7 @@ import { assertGraph, topicById, topics } from './data'
 import { DOMAIN_LABEL, DOMAINS, type Domain, type ProgressStatus } from './data/types'
 import { resourcesById, resourcesByNode } from './data/resources'
 import { availability } from './lib/graph'
-import { relativeDay } from './lib/dates'
+import { relativeDay, toDateInput } from './lib/dates'
 import { resolveViewable, type ViewerTarget } from './lib/viewer'
 import {
   focusKey,
@@ -22,15 +22,18 @@ import {
   saveFocus,
   type Focus,
 } from './lib/focus'
+import { dayStats, loadGoal, saveGoal, streaks, summarize, trailing } from './lib/mastery'
 import {
   addCheckIn,
+  addTrackedMinutes,
   allCheckIns,
+  allEvents,
   exportProgress,
   importProgress,
   isDone,
   lastCheckIn,
   loadProgress,
-  minutesSince,
+  recordView,
   removeCheckIn,
   setNotes,
   setStatus,
@@ -40,7 +43,7 @@ import {
   toggleSubtopic,
 } from './lib/progress'
 
-type View = 'map' | 'library' | 'paths' | 'log' | 'curriculum'
+type View = 'map' | 'library' | 'paths' | 'progress' | 'curriculum'
 
 const graphErrors = assertGraph()
 
@@ -57,27 +60,53 @@ export default function App() {
   const [viewer, setViewer] = useState<ViewerTarget | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [draft, setDraft] = useState<{ minutes: number; note: string; key: number } | null>(null)
+  const [goal, setGoalState] = useState(loadGoal)
 
   function setFocus(next: Focus) {
     saveFocus(next)
     setFocusState(next)
   }
 
+  function setGoal(minutes: number) {
+    saveGoal(minutes)
+    setGoalState(minutes)
+  }
+
   const scoped = useMemo(() => focusTopics(focus), [focus])
   const selected = selectedId ? topicById[selectedId] : null
   const viewerResource = viewer ? resourcesById[viewer.resourceId] : null
+  /** Subject that automatically tracked viewer time is credited to. */
+  const trackTopicId = viewerResource
+    ? selectedId && viewerResource.nodeIds.includes(selectedId)
+      ? selectedId
+      : viewerResource.nodeIds[0] ?? null
+    : null
 
   /** Open a resource in the middle panel and make sure a matching subject is in the reader. */
   function openResource(target: ViewerTarget) {
     const resource = resourcesById[target.resourceId]
     if (!resource) return
-    if (!selectedId || !resource.nodeIds.includes(selectedId)) {
+    let topicId = selectedId
+    if (!topicId || !resource.nodeIds.includes(topicId)) {
       const inScope = resource.nodeIds.find((id) => scoped.some((topic) => topic.id === id))
-      setSelectedId(inScope ?? resource.nodeIds[0] ?? null)
+      topicId = inScope ?? resource.nodeIds[0] ?? null
+      setSelectedId(topicId)
     }
+    if (topicId) setProgress((map) => recordView(map, topicId!, resource.id))
     setViewer(target)
     setView('map')
   }
+
+  // Passive time tracking: while material is open in the viewer and the tab is visible,
+  // credit one minute per minute to the subject. No button to press.
+  useEffect(() => {
+    if (!viewer || !trackTopicId || view !== 'map') return
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return
+      setProgress((map) => addTrackedMinutes(map, trackTopicId, 1))
+    }, 60000)
+    return () => window.clearInterval(id)
+  }, [viewer, trackTopicId, view])
 
   function startSession() {
     if (!viewerResource) return
@@ -110,17 +139,35 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [viewer])
-  const done = scoped.filter((topic) => isDone(progress, topic.id)).length
-  const hoursDone = scoped
-    .filter((topic) => isDone(progress, topic.id))
-    .reduce((sum, topic) => sum + topic.hours, 0)
-  const hoursAll = scoped.reduce((sum, topic) => sum + topic.hours, 0)
-  const pct = scoped.length ? Math.round((done / scoped.length) * 100) : 0
-  const weekMin = minutesSince(progress, Date.now() - 7 * 86400000)
+  const summary = useMemo(() => summarize(progress, scoped), [progress, scoped])
+  const stats = useMemo(() => dayStats(progress), [progress])
+  const streak = useMemo(() => streaks(stats), [stats])
+  const weekMin = useMemo(() => trailing(stats, 7).minutes, [stats])
+  const done = summary.counts.mastered
+  const pct = summary.pct
   const scopedIds = useMemo(() => new Set(scoped.map((topic) => topic.id)), [scoped])
-  const recent = allCheckIns(progress)
-    .filter((entry) => scopedIds.has(entry.nodeId))
-    .slice(0, 6)
+  const recent = useMemo(() => {
+    const items = [
+      ...allCheckIns(progress).map((entry) => ({
+        key: `c-${entry.nodeId}-${entry.id}`,
+        at: entry.at,
+        nodeId: entry.nodeId,
+        text: `${entry.minutes} min`,
+      })),
+      ...allEvents(progress)
+        .filter((event) => event.kind !== 'view')
+        .map((event) => ({
+          key: `e-${event.nodeId}-${event.id}`,
+          at: event.at,
+          nodeId: event.nodeId,
+          text: event.kind === 'mastered' ? 'mastered' : event.label,
+        })),
+    ]
+    return items
+      .filter((entry) => scopedIds.has(entry.nodeId))
+      .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+      .slice(0, 6)
+  }, [progress, scopedIds])
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -187,8 +234,8 @@ export default function App() {
           <button className={view === 'curriculum' ? 'active' : ''} onClick={() => setView('curriculum')}>
             Syllabus
           </button>
-          <button className={view === 'log' ? 'active' : ''} onClick={() => setView('log')}>
-            Log
+          <button className={view === 'progress' ? 'active' : ''} onClick={() => setView('progress')}>
+            Progress
           </button>
         </nav>
         <label className="focus-control">
@@ -218,13 +265,19 @@ export default function App() {
           </select>
         </label>
         <div className="top-stats">
-          <span>
-            {done}/{scoped.length} · {pct}%
-            {focus.type !== 'all' ? ` · ${focusLabel(focus)}` : ''} · {weekMin} min / 7d
-          </span>
-          <div className="meter" title={`${pct}% complete · ${hoursDone}/${hoursAll}h checked off`}>
-            <span style={{ width: `${pct}%` }} />
-          </div>
+          <button
+            className="top-mastery"
+            onClick={() => setView('progress')}
+            title={`${summary.earnedHours}/${summary.hours} subject-hours · ${done}/${scoped.length} mastered${focus.type !== 'all' ? ` · ${focusLabel(focus)}` : ''}`}
+          >
+            <span>
+              Mastery {pct}% · {done}/{scoped.length} · {weekMin} min / 7d
+              {streak.current > 0 ? ` · ${streak.current}d streak` : ''}
+            </span>
+            <div className="meter">
+              <span style={{ width: `${pct}%` }} />
+            </div>
+          </button>
           <button className="ghost" onClick={downloadProgress}>
             Export
           </button>
@@ -306,22 +359,25 @@ export default function App() {
                   </button>
                 ))}
             </div>
-            <h2>Recent check-ins</h2>
+            <h2>Recent activity</h2>
             {recent.length === 0 ? (
-              <p className="hint">None yet. Open a subject and log minutes.</p>
+              <p className="hint">None yet. Tick something or view a source and it appears here.</p>
             ) : (
               <div className="rel-list">
                 {recent.map((entry) => (
-                  <button key={`${entry.nodeId}-${entry.id}`} onClick={() => openTopic(entry.nodeId)}>
+                  <button key={entry.key} onClick={() => openTopic(entry.nodeId)}>
                     {topicById[entry.nodeId]?.title ?? entry.nodeId}
                     <span className="legend-count">
                       {' '}
-                      · {relativeDay(entry.at)} · {entry.minutes}m
+                      · {relativeDay(entry.at)} · {entry.text.length > 28 ? `${entry.text.slice(0, 26)}…` : entry.text}
                     </span>
                   </button>
                 ))}
               </div>
             )}
+            <button className="ghost" style={{ marginTop: 10 }} onClick={() => setView('progress')}>
+              Open progress
+            </button>
             {graphErrors.length > 0 && (
               <p className="warning">Graph errors: {graphErrors.join('; ')}</p>
             )}
@@ -346,6 +402,7 @@ export default function App() {
                   viewerResource.id,
                 ),
               )}
+              trackedToday={trackTopicId ? progress[trackTopicId]?.tracked?.[toDateInput()] ?? 0 : 0}
               session={session}
               onSelect={openResource}
               onClose={() => setViewer(null)}
@@ -424,7 +481,20 @@ export default function App() {
           onToggleSubject={(id) => setProgress((map) => toggleDone(map, id))}
         />
       )}
-      {view === 'log' && <Log progress={progress} onOpenTopic={openTopic} />}
+      {view === 'progress' && (
+        <Progress
+          progress={progress}
+          scoped={scoped}
+          scopeLabel={focusLabel(focus)}
+          goal={goal}
+          onGoal={setGoal}
+          onOpenTopic={openTopic}
+          onFocusPath={(id) => {
+            setFocus({ type: 'path', id })
+            setView('map')
+          }}
+        />
+      )}
     </div>
   )
 }

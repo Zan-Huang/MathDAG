@@ -7,8 +7,10 @@ import { topicById } from '../data'
 import { fromDateInput, relativeDay, toDateInput } from '../lib/dates'
 import { prerequisitesMet } from '../lib/graph'
 import { subtopicsFor } from '../data/curriculum'
-import { emptyNode, isDone, isSubtopicDone, lastCheckIn, minutesOn } from '../lib/progress'
+import { emptyNode, isDone, isSubtopicDone, lastCheckIn } from '../lib/progress'
+import { MASTERY_LABEL, masteryOf, nextItem } from '../lib/mastery'
 import { Check } from './Check'
+import { MasteryBar } from './MasteryBar'
 import { ResourceCard } from './ResourceCard'
 
 type Props = {
@@ -62,8 +64,10 @@ export function Reader({
   const locked = !prerequisitesMet(topic.id, progress) && status === 'none'
   const list = resourcesByNode[topic.id] ?? []
   const done = isDone(progress, topic.id)
-  const minutes = minutesOn(progress, topic.id)
+  const mastery = masteryOf(progress, topic.id)
+  const minutes = mastery.minutes
   const last = lastCheckIn(progress, topic.id)
+  const next = nextItem(progress, topic.id)
   const [minutesInput, setMinutesInput] = useState('45')
   const [noteInput, setNoteInput] = useState('')
   const [dateInput, setDateInput] = useState(toDateInput())
@@ -106,18 +110,41 @@ export function Reader({
         ))}
       </div>
 
-      <div className="track-box">
+      <div className={`track-box level-${mastery.level}`}>
+        <div className="track-head">
+          <span className={`level-badge level-${mastery.level}`}>{MASTERY_LABEL[mastery.level]}</span>
+          <span className="track-pct">{mastery.pct}%</span>
+        </div>
+        <MasteryBar pct={mastery.pct} level={mastery.level} />
+        <div className="track-parts">
+          {mastery.subtopics.total > 0 && (
+            <span>
+              Curriculum <strong>{mastery.subtopics.done}/{mastery.subtopics.total}</strong>
+            </span>
+          )}
+          <span>
+            Ideas <strong>{mastery.ideas.done}/{mastery.ideas.total}</strong>
+          </span>
+          <span>
+            Sources <strong>{mastery.resources.done}/{mastery.resources.total}</strong>
+          </span>
+          <span>
+            Time <strong>{minutes} min</strong>
+          </span>
+        </div>
         <Check
           checked={done}
           partial={status === 'in_progress'}
-          label={done ? 'Checked off' : 'Check off this subject'}
+          label={done ? 'Checked off — mastered' : 'Check off this subject (mastered)'}
           onChange={onToggleDone}
         />
         <p className="hint" style={{ margin: '8px 0 0' }}>
-          {minutes > 0
-            ? `${minutes} min logged · ${node.checkins.length} check-in${node.checkins.length === 1 ? '' : 's'}`
-            : 'No study time logged yet'}
-          {last ? ` · last ${relativeDay(last.at)}` : ''}
+          {done
+            ? 'Counts as mastered and unlocks what depends on it.'
+            : next
+              ? `Next: ${next}`
+              : 'Everything ticked — check the subject off when you can do the work.'}
+          {last ? ` · last check-in ${relativeDay(last.at)}` : ''}
         </p>
       </div>
 

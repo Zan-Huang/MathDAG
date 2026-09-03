@@ -17,6 +17,8 @@ type Props = {
   queue: Resource[]
   topicId: string | null
   checked: boolean
+  /** Minutes credited automatically to the subject today while material was open. */
+  trackedToday: number
   session: Session | null
   onSelect: (target: ViewerTarget) => void
   onClose: () => void
@@ -32,6 +34,7 @@ export function Viewer({
   queue,
   topicId,
   checked,
+  trackedToday,
   session,
   onSelect,
   onClose,
@@ -71,6 +74,12 @@ export function Viewer({
           {target.part !== null && <div className="viewer-part-name">{view.title}</div>}
         </div>
         <div className="viewer-actions">
+          <span
+            className="viewer-tracked"
+            title="Time is tracked automatically while this panel is open and the tab is visible"
+          >
+            <i /> {trackedToday} min today
+          </span>
           <Check checked={checked} label="Used this" onChange={onToggleUsed} />
           {session ? (
             <button
